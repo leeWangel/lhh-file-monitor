@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans default-autowire="byName"
+    xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:aop="http://www.springframework.org/schema/aop"
+    xmlns:tx="http://www.springframework.org/schema/tx"
+    xmlns:context="http://www.springframework.org/schema/context" 
+    xsi:schemaLocation=" 
+    http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.2.xsd
+    http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-3.2.xsd 
+    http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-3.2.xsd 
+    http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.2.xsd">
+	<bean id="propertyConfigure" class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="locations">
+			<list>
+				<value>classpath:jdbc.properties</value>
+			</list>
+		</property>
+	</bean>
+	
+	<bean id="dataSourceDB" class="com.mchange.v2.c3p0.ComboPooledDataSource" destroy-method="close">
+		<property name="driverClass" value="${hibernate.connection.driver_class}"/>
+		<property name="jdbcUrl" value="${hibernate.db.connection.url}"/>
+		<property name="user" value="${hibernate.db.connection.username}"/>
+		<property name="password" value="${hibernate.db.connection.password}"/>
+		<property name="minPoolSize" value="1"/>
+		<!-- 达到最大连接数后可以增加的连接个数  -->
+		<property name="acquireIncrement" value="2"/>
+		<property name="maxPoolSize" value="3"/>
+		<!-- 最大闲置时间 秒 -->
+		<property name="maxIdleTime" value="600"/>
+		<property name="maxStatements" value="100"/>
+		<!-- 闲置的连接测试周期 秒 -->
+		<property name="idleConnectionTestPeriod" value="1200"/>
+	</bean>
+	<bean id="sessionFactory" class="org.springframework.orm.hibernate4.LocalSessionFactoryBean">
+        <property name="dataSource" ref="dataSourceDB"/>
+        <property name="packagesToScan" value="com.lhh.*.model" />
+        <property name="mappingLocations">
+            <list>
+                <value>classpath:spring-hibernate-type.xml</value>
+            </list>
+        </property>
+        <property name="hibernateProperties">
+            <props>
+				<prop key="hibernate.dialect">${hibernate.dialect}</prop>
+				<!--
+		    	<prop key="hibernate.hbm2ddl.auto">true</prop> 
+				<prop key="hibernate.hbm2ddl.auto">create</prop>
+				  -->
+				<prop key="hibernate.max_fetch_depth">1</prop>
+				<prop key="hibernate.jdbc.fetch_size">50</prop>
+				<prop key="hibernate.jdbc.batch_size">20</prop>
+				<prop key="hibernate.jdbc.use_scrollable_resultset">false</prop>
+				<prop key="hibernate.use_outer_join">true</prop>
+				<prop key="hibernate.show_sql">false</prop>
+				<prop key="hibernate.format_sql">true</prop>
+				<prop key="hibernate.cache.use_query_cache">true</prop>
+				<prop key="hibernate.connection.pool_size">20</prop>
+				<prop key="hibernate.cache.region.factory_class">org.hibernate.cache.ehcache.EhCacheRegionFactory</prop>
+				<prop key="hibernate.cache.provider_class">net.sf.ehcache.hibernate.EhCacheProvider</prop>
+			</props>
+		</property>
+	</bean>
+	
+	<bean id="transactionManagerDB" class="org.springframework.orm.hibernate4.HibernateTransactionManager">
+		<property name="sessionFactory" ref="sessionFactory"/>
+	</bean>
+	
+	<bean id="cacheManager"
+		class="org.springframework.cache.ehcache.EhCacheManagerFactoryBean">
+		<property name="configLocation">
+			<value>
+				classpath:ehcache.xml
+			</value>
+		</property>
+	</bean>
+	
+    <aop:config>         
+        <aop:advisor pointcut="execution(* com.lhh.*.service.impl..*ServiceImpl.*(..))" advice-ref="txAdviceDB"/>
+    </aop:config>
+    
+    <tx:advice id="txAdviceDB" transaction-manager="transactionManagerDB">
+        <tx:attributes>
+            <tx:method name="find*" read-only="true"/>
+            <tx:method name="get*" read-only="true"/>
+            <tx:method name="load*" read-only="true"/>
+            <tx:method name="query*" read-only="true"/>
+            <tx:method name="*" rollback-for="Exception"/>
+        </tx:attributes>
+    </tx:advice>
+    <!-- 声明式事务管理end -->
+</beans>
